@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApprovalLevel, CallStatus } from "@prisma/client";
+import { ApprovalLevel, CallStatus } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import { generateTts } from "@/lib/comms/elevenlabs";
 import { initiateCall, buildTwiml } from "@/lib/comms/twilio";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MessageStatus } from "@prisma/client";
+import { MessageStatus } from "@/generated/prisma";
 import { prisma } from "@/lib/prisma";
 import {
   getEmailDisclosure,

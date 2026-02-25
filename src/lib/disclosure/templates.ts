@@ -1,4 +1,4 @@
-import { DisclosureMode } from "@prisma/client";
+import { DisclosureMode } from "@/generated/prisma";
 
 export interface DisclosureContext {
   mode: DisclosureMode;
