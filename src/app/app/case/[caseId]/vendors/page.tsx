@@ -15,6 +15,33 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { VendorShortlistButton } from "./shortlist-button";
 
+type VendorData = {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  state: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  rating: number | null;
+  priceRange: string | null;
+  description: string | null;
+  services: string[];
+};
+
+type ShortlistEntry = {
+  id: string;
+  caseId: string;
+  vendorId: string;
+  priority: number;
+  status: string;
+  notes: string | null;
+  createdAt: Date;
+  vendor: VendorData;
+};
+
 function StarRating({ rating }: { rating: number | null }) {
   if (!rating) return <span className="text-xs text-stone-400">No rating</span>;
   const full = Math.floor(rating);
@@ -75,7 +102,8 @@ export default async function VendorsPage({
   if (!caseData) notFound();
 
   // Load vendors matching the case city/state
-  const shortlistedVendorIds = caseData.vendorShortlists.map((s) => s.vendorId);
+  const shortlistedVendors = caseData.vendorShortlists as ShortlistEntry[];
+  const shortlistedVendorIds = shortlistedVendors.map((s) => s.vendorId);
 
   const matchingVendors = await prisma.vendor.findMany({
     where: {
@@ -92,7 +120,7 @@ export default async function VendorsPage({
     orderBy: [{ rating: "desc" }, { name: "asc" }],
   });
 
-  const shortlistedVendors = caseData.vendorShortlists;
+  const availableVendors = matchingVendors as VendorData[];
 
   return (
     <div className="space-y-8">
