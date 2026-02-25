@@ -282,7 +282,7 @@ export async function runJobRunner(): Promise<JobRunnerResult> {
 
 const CreateJobInputSchema = z.object({
   type: z.enum(JOB_TYPES),
-  payload: z.record(z.string(), z.unknown()),
+  payload: z.record(z.string(), z.string()),
   runAt: z.date().optional(),
   maxAttempts: z.number().int().min(1).max(10).optional().default(3),
 });
