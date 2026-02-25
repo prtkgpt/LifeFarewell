@@ -105,7 +105,7 @@ export default async function VendorsPage({
   const shortlistedVendors = caseData.vendorShortlists as ShortlistEntry[];
   const shortlistedVendorIds = shortlistedVendors.map((s) => s.vendorId);
 
-  const matchingVendors = await prisma.vendor.findMany({
+  const availableVendors = await prisma.vendor.findMany({
     where: {
       ...(caseData.city || caseData.state
         ? {
@@ -120,7 +120,7 @@ export default async function VendorsPage({
     orderBy: [{ rating: "desc" }, { name: "asc" }],
   });
 
-  const availableVendors = matchingVendors as VendorData[];
+  const availableVendors = availableVendors as VendorData[];
 
   return (
     <div className="space-y-8">
@@ -271,14 +271,14 @@ export default async function VendorsPage({
             Available Vendors
           </h2>
           <p className="text-sm text-stone-500">
-            {matchingVendors.length} vendor{matchingVendors.length !== 1 ? "s" : ""} found
+            {availableVendors.length} vendor{availableVendors.length !== 1 ? "s" : ""} found
             {caseData.city || caseData.state
               ? ` near ${[caseData.city, caseData.state].filter(Boolean).join(", ")}`
               : ""}
           </p>
         </div>
 
-        {matchingVendors.length === 0 ? (
+        {availableVendors.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50/50 p-10 text-center">
             <MapPin className="mx-auto h-10 w-10 text-stone-300" />
             <p className="mt-3 text-sm font-medium text-stone-600">
@@ -292,7 +292,7 @@ export default async function VendorsPage({
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {matchingVendors.map((vendor) => (
+            {availableVendors.map((vendor) => (
               <div
                 key={vendor.id}
                 className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"

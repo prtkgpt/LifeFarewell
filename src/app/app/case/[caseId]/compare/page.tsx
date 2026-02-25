@@ -11,6 +11,37 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+type QuoteLineItemData = {
+  id: string;
+  quoteRequestId: string;
+  category: string;
+  description: string;
+  amount: number;
+  isRequired: boolean;
+  isFlagged: boolean;
+  flagReason: string | null;
+};
+
+type VendorData = {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+};
+
+type QuoteRequestData = {
+  id: string;
+  caseId: string;
+  vendorId: string;
+  status: string;
+  rawContent: string | null;
+  totalPrice: number | null;
+  currency: string;
+  notes: string | null;
+  vendor: VendorData;
+  lineItems: QuoteLineItemData[];
+};
+
 const CATEGORY_LABELS: Record<string, string> = {
   basic_services: "Basic Services",
   cremation: "Cremation",
@@ -61,7 +92,8 @@ export default async function ComparePage({
   });
 
   // Only show quotes that have line items
-  const quotesWithItems = quoteRequests.filter(
+  const allQuotes = quoteRequests as QuoteRequestData[];
+  const quotesWithItems = allQuotes.filter(
     (q) => q.lineItems.length > 0
   );
 
