@@ -105,7 +105,7 @@ export default async function VendorsPage({
   const shortlistedVendors = caseData.vendorShortlists as ShortlistEntry[];
   const shortlistedVendorIds = shortlistedVendors.map((s) => s.vendorId);
 
-  const availableVendors = await prisma.vendor.findMany({
+  const matchingVendorResults = await prisma.vendor.findMany({
     where: {
       ...(caseData.city || caseData.state
         ? {
@@ -120,7 +120,7 @@ export default async function VendorsPage({
     orderBy: [{ rating: "desc" }, { name: "asc" }],
   });
 
-  const availableVendors = availableVendors as VendorData[];
+  const availableVendors = matchingVendorResults as VendorData[];
 
   return (
     <div className="space-y-8">
