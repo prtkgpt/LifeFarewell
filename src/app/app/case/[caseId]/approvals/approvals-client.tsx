@@ -317,32 +317,32 @@ function ApprovalPreview({
       {/* Body content */}
       <div className="p-5">
         {/* Payload metadata */}
-        {(payload.toAddress || payload.toNumber || payload.to) && (
+        {(payload.toAddress ?? payload.toNumber ?? payload.to) != null && (
           <div className="mb-4 rounded-lg bg-stone-50 p-3">
             <dl className="grid gap-1 text-xs">
-              {payload.toAddress && (
+              {typeof payload.toAddress === "string" && (
                 <div className="flex gap-2">
                   <dt className="font-medium text-stone-500">To:</dt>
-                  <dd className="text-stone-700">{String(payload.toAddress)}</dd>
+                  <dd className="text-stone-700">{payload.toAddress}</dd>
                 </div>
               )}
-              {payload.toNumber && (
+              {typeof payload.toNumber === "string" && (
                 <div className="flex gap-2">
                   <dt className="font-medium text-stone-500">To:</dt>
-                  <dd className="text-stone-700">{String(payload.toNumber)}</dd>
+                  <dd className="text-stone-700">{payload.toNumber}</dd>
                 </div>
               )}
-              {payload.subject && (
+              {typeof payload.subject === "string" && (
                 <div className="flex gap-2">
                   <dt className="font-medium text-stone-500">Subject:</dt>
-                  <dd className="text-stone-700">{String(payload.subject)}</dd>
+                  <dd className="text-stone-700">{payload.subject}</dd>
                 </div>
               )}
-              {payload.fromAddress && (
+              {typeof payload.fromAddress === "string" && (
                 <div className="flex gap-2">
                   <dt className="font-medium text-stone-500">From:</dt>
                   <dd className="text-stone-700">
-                    {String(payload.fromAddress)}
+                    {payload.fromAddress}
                   </dd>
                 </div>
               )}
