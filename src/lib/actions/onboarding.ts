@@ -7,6 +7,7 @@ import {
   communicationConsentSchema,
 } from "@/lib/validations/onboarding";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 export async function createBereavedCase(formData: {
   relationship: string;
@@ -28,187 +29,201 @@ export async function createBereavedCase(formData: {
   disclosureMode: "FULL" | "MINIMAL";
   contactFirstName: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Not authenticated");
-  }
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { error: "Not authenticated. Please sign in again." };
+    }
 
-  // Validate details
-  const detailsParsed = bereavedDetailsSchema.safeParse({
-    relationship: formData.relationship,
-    city: formData.city,
-    state: formData.state,
-    dateOfDeath: formData.dateOfDeath,
-    hasExistingFuneralHome: formData.hasExistingFuneralHome,
-    immediateNeeds: formData.immediateNeeds,
-    budgetTarget: formData.budgetTarget,
-    budgetMax: formData.budgetMax,
-  });
-
-  if (!detailsParsed.success) {
-    return { error: detailsParsed.error.flatten().fieldErrors };
-  }
-
-  // Validate consent
-  const consentParsed = communicationConsentSchema.safeParse({
-    allowOutbound: formData.allowOutbound,
-    allowEmail: formData.allowEmail,
-    allowSms: formData.allowSms,
-    allowCalls: formData.allowCalls,
-    callingWindowStart: formData.callingWindowStart,
-    callingWindowEnd: formData.callingWindowEnd,
-    timezone: formData.timezone,
-    approvalLevel: formData.approvalLevel,
-    disclosureMode: formData.disclosureMode,
-    contactFirstName: formData.contactFirstName,
-  });
-
-  if (!consentParsed.success) {
-    return { error: consentParsed.error.flatten().fieldErrors };
-  }
-
-  const details = detailsParsed.data;
-  const consent = consentParsed.data;
-
-  // Create everything in a transaction
-  const result = await prisma.$transaction(async (tx) => {
-    // Create onboarding profile
-    await tx.onboardingProfile.create({
-      data: {
-        userId: session.user.id,
-        useCase: "BEREAVED",
-        relationship: details.relationship,
-        city: details.city,
-        state: details.state,
-        dateOfDeath: details.dateOfDeath ? new Date(details.dateOfDeath) : null,
-        hasExistingFuneralHome: details.hasExistingFuneralHome,
-        immediateNeeds: details.immediateNeeds,
-        budgetTarget: details.budgetTarget,
-        budgetMax: details.budgetMax,
-      },
+    // Validate details
+    const detailsParsed = bereavedDetailsSchema.safeParse({
+      relationship: formData.relationship,
+      city: formData.city,
+      state: formData.state,
+      dateOfDeath: formData.dateOfDeath,
+      hasExistingFuneralHome: formData.hasExistingFuneralHome,
+      immediateNeeds: formData.immediateNeeds,
+      budgetTarget: formData.budgetTarget,
+      budgetMax: formData.budgetMax,
     });
 
-    // Create case
-    const newCase = await tx.case.create({
-      data: {
-        userId: session.user.id,
-        title: `Arrangements for ${consent.contactFirstName}'s family`,
-        pipelineStage: "DISCOVERY",
-        goalSummary: `Get 3 comparable funeral quotes under $${(details.budgetMax / 100).toLocaleString()}`,
-        budgetTarget: details.budgetTarget,
-        budgetMax: details.budgetMax,
-        city: details.city,
-        state: details.state,
-        sandboxMode: true,
-      },
+    if (!detailsParsed.success) {
+      return { error: detailsParsed.error.flatten().fieldErrors };
+    }
+
+    // Validate consent
+    const consentParsed = communicationConsentSchema.safeParse({
+      allowOutbound: formData.allowOutbound,
+      allowEmail: formData.allowEmail,
+      allowSms: formData.allowSms,
+      allowCalls: formData.allowCalls,
+      callingWindowStart: formData.callingWindowStart,
+      callingWindowEnd: formData.callingWindowEnd,
+      timezone: formData.timezone,
+      approvalLevel: formData.approvalLevel,
+      disclosureMode: formData.disclosureMode,
+      contactFirstName: formData.contactFirstName,
     });
 
-    // Create decedent profile
-    await tx.decedentProfile.create({
-      data: {
-        caseId: newCase.id,
-        dateOfDeath: details.dateOfDeath ? new Date(details.dateOfDeath) : null,
-        city: details.city,
-        state: details.state,
-      },
-    });
+    if (!consentParsed.success) {
+      return { error: consentParsed.error.flatten().fieldErrors };
+    }
 
-    // Create communication policy
-    await tx.communicationPolicy.create({
-      data: {
-        caseId: newCase.id,
-        approvalLevel: consent.approvalLevel,
-        disclosureMode: consent.disclosureMode,
-        allowOutbound: consent.allowOutbound,
-        allowEmail: consent.allowEmail,
-        allowSms: consent.allowSms,
-        allowCalls: consent.allowCalls,
-        callingWindowStart: consent.callingWindowStart,
-        callingWindowEnd: consent.callingWindowEnd,
-        timezone: consent.timezone,
-        contactFirstName: consent.contactFirstName,
-      },
-    });
+    const details = detailsParsed.data;
+    const consent = consentParsed.data;
 
-    // Create initial checklist items
-    const checklistItems = getDefaultChecklist();
-    await tx.checklistItem.createMany({
-      data: checklistItems.map((item, index) => ({
-        caseId: newCase.id,
-        scopeType: "CASE",
-        title: item.title,
-        description: item.description,
-        category: item.category,
-        sortOrder: index,
-        status: "NOT_STARTED",
-      })),
-    });
-
-    // Create audit log
-    await tx.auditLog.create({
-      data: {
-        userId: session.user.id,
-        caseId: newCase.id,
-        actorType: "USER",
-        actionType: "case.created",
-        summary: `Case created: ${newCase.title}`,
-        payload: {
+    // Create everything in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create onboarding profile
+      await tx.onboardingProfile.create({
+        data: {
+          userId: session.user.id,
+          useCase: "BEREAVED",
           relationship: details.relationship,
           city: details.city,
           state: details.state,
+          dateOfDeath: details.dateOfDeath ? new Date(details.dateOfDeath) : null,
+          hasExistingFuneralHome: details.hasExistingFuneralHome,
+          immediateNeeds: details.immediateNeeds,
           budgetTarget: details.budgetTarget,
           budgetMax: details.budgetMax,
+        },
+      });
+
+      // Create case
+      const newCase = await tx.case.create({
+        data: {
+          userId: session.user.id,
+          title: `Arrangements for ${consent.contactFirstName}'s family`,
+          pipelineStage: "DISCOVERY",
+          goalSummary: `Get 3 comparable funeral quotes under $${(details.budgetMax / 100).toLocaleString()}`,
+          budgetTarget: details.budgetTarget,
+          budgetMax: details.budgetMax,
+          city: details.city,
+          state: details.state,
+          sandboxMode: true,
+        },
+      });
+
+      // Create decedent profile
+      await tx.decedentProfile.create({
+        data: {
+          caseId: newCase.id,
+          dateOfDeath: details.dateOfDeath ? new Date(details.dateOfDeath) : null,
+          city: details.city,
+          state: details.state,
+        },
+      });
+
+      // Create communication policy
+      await tx.communicationPolicy.create({
+        data: {
+          caseId: newCase.id,
           approvalLevel: consent.approvalLevel,
           disclosureMode: consent.disclosureMode,
+          allowOutbound: consent.allowOutbound,
+          allowEmail: consent.allowEmail,
+          allowSms: consent.allowSms,
+          allowCalls: consent.allowCalls,
+          callingWindowStart: consent.callingWindowStart,
+          callingWindowEnd: consent.callingWindowEnd,
+          timezone: consent.timezone,
+          contactFirstName: consent.contactFirstName,
         },
-      },
+      });
+
+      // Create initial checklist items
+      const checklistItems = getDefaultChecklist();
+      await tx.checklistItem.createMany({
+        data: checklistItems.map((item, index) => ({
+          caseId: newCase.id,
+          scopeType: "CASE",
+          title: item.title,
+          description: item.description,
+          category: item.category,
+          sortOrder: index,
+          status: "NOT_STARTED",
+        })),
+      });
+
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          caseId: newCase.id,
+          actorType: "USER",
+          actionType: "case.created",
+          summary: `Case created: ${newCase.title}`,
+          payload: {
+            relationship: details.relationship,
+            city: details.city,
+            state: details.state,
+            budgetTarget: details.budgetTarget,
+            budgetMax: details.budgetMax,
+            approvalLevel: consent.approvalLevel,
+            disclosureMode: consent.disclosureMode,
+          },
+        },
+      });
+
+      return newCase;
     });
 
-    return newCase;
-  });
-
-  redirect(`/app/case/${result.id}/concierge`);
+    redirect(`/app/case/${result.id}/concierge`);
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    console.error("createBereavedCase error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return { error: `Failed to create case: ${message}` };
+  }
 }
 
 export async function createPreneedPlan(formData: {
   title: string;
   notes?: string;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Not authenticated");
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { error: "Not authenticated. Please sign in again." };
+    }
+
+    const plan = await prisma.$transaction(async (tx) => {
+      await tx.onboardingProfile.create({
+        data: {
+          userId: session.user.id,
+          useCase: "PRENEED",
+        },
+      });
+
+      const newPlan = await tx.plan.create({
+        data: {
+          userId: session.user.id,
+          title: formData.title || "My Pre-Need Plan",
+          notes: formData.notes,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          planId: newPlan.id,
+          actorType: "USER",
+          actionType: "plan.created",
+          summary: `Pre-need plan created: ${newPlan.title}`,
+        },
+      });
+
+      return newPlan;
+    });
+
+    redirect(`/app/plan/${plan.id}/overview`);
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    console.error("createPreneedPlan error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return { error: `Failed to create plan: ${message}` };
   }
-
-  const plan = await prisma.$transaction(async (tx) => {
-    await tx.onboardingProfile.create({
-      data: {
-        userId: session.user.id,
-        useCase: "PRENEED",
-      },
-    });
-
-    const newPlan = await tx.plan.create({
-      data: {
-        userId: session.user.id,
-        title: formData.title || "My Pre-Need Plan",
-        notes: formData.notes,
-      },
-    });
-
-    await tx.auditLog.create({
-      data: {
-        userId: session.user.id,
-        planId: newPlan.id,
-        actorType: "USER",
-        actionType: "plan.created",
-        summary: `Pre-need plan created: ${newPlan.title}`,
-      },
-    });
-
-    return newPlan;
-  });
-
-  redirect(`/app/plan/${plan.id}/overview`);
 }
 
 function getDefaultChecklist() {

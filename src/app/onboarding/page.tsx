@@ -82,7 +82,7 @@ export default function OnboardingPage() {
     setStep("creating");
 
     try {
-      await createBereavedCase({
+      const result = await createBereavedCase({
         relationship,
         city,
         state,
@@ -102,6 +102,13 @@ export default function OnboardingPage() {
         disclosureMode,
         contactFirstName,
       });
+      if (result?.error) {
+        const msg = typeof result.error === "string"
+          ? result.error
+          : "Validation failed. Please check your inputs.";
+        setError(msg);
+        setStep("consent");
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       setError(msg);
@@ -112,9 +119,16 @@ export default function OnboardingPage() {
   async function handleSubmitPreneed() {
     setStep("creating");
     try {
-      await createPreneedPlan({
+      const result = await createPreneedPlan({
         title: planTitle || "My Pre-Need Plan",
       });
+      if (result?.error) {
+        const msg = typeof result.error === "string"
+          ? result.error
+          : "Validation failed. Please check your inputs.";
+        setError(msg);
+        setStep("use_case");
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       setError(msg);
