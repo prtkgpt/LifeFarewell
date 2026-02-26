@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { JobStatus } from "@/generated/prisma";
+import { JobStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { runOrchestrator } from "./orchestrator";
 import { runVendorDiscovery } from "./vendor-discovery";

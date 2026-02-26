@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ApprovalLevel, MessageStatus } from "@/generated/prisma";
+import { ApprovalLevel, MessageStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/comms/resend";
 import { sendSms } from "@/lib/comms/twilio";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PipelineStage } from "@/generated/prisma";
+import { PipelineStage } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "./audit";
 
