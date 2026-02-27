@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Heart, ArrowRight, ArrowLeft, Check } from "lucide-react";
+import { signIn } from "next-auth/react";
 import { createBereavedCase, createPreneedPlan } from "@/lib/actions/onboarding";
 
 type Step = "use_case" | "details" | "consent" | "creating";
@@ -108,6 +109,16 @@ export default function OnboardingPage() {
           : "Validation failed. Please check your inputs.";
         setError(msg);
         setStep("consent");
+        return;
+      }
+      // Guest user: sign in then redirect
+      if (result?.guestCredentials && result?.redirectUrl) {
+        await signIn("credentials", {
+          email: result.guestCredentials.email,
+          password: result.guestCredentials.password,
+          redirect: false,
+        });
+        router.push(result.redirectUrl);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
@@ -128,6 +139,16 @@ export default function OnboardingPage() {
           : "Validation failed. Please check your inputs.";
         setError(msg);
         setStep("use_case");
+        return;
+      }
+      // Guest user: sign in then redirect
+      if (result?.guestCredentials && result?.redirectUrl) {
+        await signIn("credentials", {
+          email: result.guestCredentials.email,
+          password: result.guestCredentials.password,
+          redirect: false,
+        });
+        router.push(result.redirectUrl);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
