@@ -29,6 +29,7 @@ async function getOrCreateUserId(): Promise<{
       email: guestEmail,
       name: "Guest",
       hashedPassword: hashPassword(guestPassword),
+      isGuest: true,
     },
   });
 
@@ -133,6 +134,15 @@ export async function createBereavedCase(formData: {
           city: details.city,
           state: details.state,
           sandboxMode: true,
+        },
+      });
+
+      // Register creator as PRIMARY member
+      await tx.caseMember.create({
+        data: {
+          caseId: newCase.id,
+          userId,
+          role: "PRIMARY",
         },
       });
 

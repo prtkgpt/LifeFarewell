@@ -90,6 +90,17 @@ enum TranscriptStatus {
   FAILED
 }
 
+enum CaseMemberRole {
+  PRIMARY
+  SECONDARY
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
 // ─── AUTH MODELS ──────────────────────────────────────────────────────
 model User {
   id             String    @id @default(cuid())
@@ -97,16 +108,19 @@ model User {
   email          String    @unique
   emailVerified  DateTime?
   hashedPassword String?
+  isGuest        Boolean   @default(false)
   image          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  accounts   Account[]
-  sessions   Session[]
-  cases      Case[]
-  plans      Plan[]
-  auditLogs  AuditLog[]
-  approvals  PendingApproval[]
+  accounts        Account[]
+  sessions        Session[]
+  cases           Case[]
+  plans           Plan[]
+  auditLogs       AuditLog[]
+  approvals       PendingApproval[]
+  caseMembers     CaseMember[]
+  sentInvitations Invitation[]      @relation("InvitationSender")
 }
 
 model Account {
@@ -164,6 +178,37 @@ model OnboardingProfile {
   updatedAt              DateTime @updatedAt
 }
 
+// ─── CASE MEMBERS & INVITATIONS ─────────────────────────────────────
+model CaseMember {
+  id        String         @id @default(cuid())
+  caseId    String
+  userId    String
+  role      CaseMemberRole @default(SECONDARY)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, userId])
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  caseId      String
+  invitedBy   String
+  email       String
+  token       String           @unique
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  sender User @relation("InvitationSender", fields: [invitedBy], references: [id])
+}
+
 // ─── CASE (PRIMARY) ──────────────────────────────────────────────────
 model Case {
   id            String        @id @default(cuid())
@@ -181,6 +226,8 @@ model Case {
   updatedAt     DateTime      @updatedAt
 
   user                User                     @relation(fields: [userId], references: [id])
+  members             CaseMember[]
+  invitations         Invitation[]
   decedentProfile     DecedentProfile?
   communicationPolicy CommunicationPolicy?
   intakeSessions      CaseIntakeSession[]

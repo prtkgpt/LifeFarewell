@@ -9,18 +9,41 @@ import {
   LogOut,
   ChevronDown,
   User,
+  ShieldAlert,
 } from "lucide-react";
 
 interface AppShellProps {
   children: React.ReactNode;
   userName?: string | null;
+  isGuest?: boolean;
 }
 
-export function AppShell({ children, userName }: AppShellProps) {
+export function AppShell({ children, userName, isGuest }: AppShellProps) {
   const pathname = usePathname();
 
   return (
     <div className="min-h-screen bg-stone-25">
+      {/* Guest Account Banner */}
+      {isGuest && (
+        <div className="border-b border-amber-200 bg-amber-50">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 sm:px-6">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-amber-600" />
+              <p className="text-sm text-amber-800">
+                <span className="font-medium">Secure your account</span> — set
+                your email and password so you don&apos;t lose access.
+              </p>
+            </div>
+            <Link
+              href="/app/claim-account"
+              className="rounded-lg bg-amber-600 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+            >
+              Secure Account
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Top Nav */}
       <nav className="sticky top-0 z-50 border-b border-stone-200 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
