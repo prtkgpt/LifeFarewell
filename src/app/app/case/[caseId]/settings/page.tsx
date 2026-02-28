@@ -27,6 +27,9 @@ interface CaseData {
   goalDeadline: string | null;
   budgetTarget: number | null;
   budgetMax: number | null;
+  zipCode: string | null;
+  city: string | null;
+  state: string | null;
   sandboxMode: boolean;
   communicationPolicy: {
     id: string;
@@ -54,6 +57,7 @@ export default function CaseSettingsPage() {
   const [goalDeadline, setGoalDeadline] = useState("");
   const [budgetTarget, setBudgetTarget] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
+  const [zipCode, setZipCode] = useState("");
 
   // Communication policy state
   const [approvalLevel, setApprovalLevel] = useState("LEVEL_1_REVIEW_ALL");
@@ -93,6 +97,7 @@ export default function CaseSettingsPage() {
           );
           setBudgetTarget(data.budgetTarget?.toString() || "");
           setBudgetMax(data.budgetMax?.toString() || "");
+          setZipCode(data.zipCode || "");
           setSandboxMode(data.sandboxMode);
 
           if (data.communicationPolicy) {
@@ -132,6 +137,7 @@ export default function CaseSettingsPage() {
         goalDeadline: goalDeadline || undefined,
         budgetTarget: budgetTarget ? parseInt(budgetTarget) : undefined,
         budgetMax: budgetMax ? parseInt(budgetMax) : undefined,
+        zipCode: zipCode || undefined,
       });
       setSavedCase(true);
       setTimeout(() => setSavedCase(false), 3000);
@@ -227,6 +233,35 @@ export default function CaseSettingsPage() {
                 className="w-full rounded-xl border border-stone-300 px-4 py-2.5 text-sm text-stone-900 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
               />
             </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-stone-700">
+                Zip Code
+              </label>
+              <input
+                type="text"
+                value={zipCode}
+                onChange={(e) => setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                className="w-full rounded-xl border border-stone-300 px-4 py-2.5 text-sm text-stone-900 focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500"
+                placeholder="e.g., 94550"
+                inputMode="numeric"
+                maxLength={5}
+              />
+              <p className="mt-1 text-xs text-stone-400">
+                Vendor discovery searches near this zip code
+              </p>
+            </div>
+
+            {caseData?.city && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-stone-700">
+                  Resolved Location
+                </label>
+                <p className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm text-stone-600">
+                  {caseData.city}, {caseData.state}
+                </p>
+              </div>
+            )}
 
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-sm font-medium text-stone-700">

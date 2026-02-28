@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { caseAccessWhere } from "@/lib/case-access";
 
 export async function updateCaseSettings(
   caseId: string,
@@ -13,13 +14,14 @@ export async function updateCaseSettings(
     budgetTarget?: number;
     budgetMax?: number;
     sandboxMode?: boolean;
+    zipCode?: string;
   }
 ) {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Not authenticated");
 
   const existing = await prisma.case.findFirst({
-    where: { id: caseId, userId: session.user.id },
+    where: caseAccessWhere(session.user.id, caseId),
   });
   if (!existing) throw new Error("Case not found");
 
@@ -34,6 +36,7 @@ export async function updateCaseSettings(
       ...(data.budgetTarget !== undefined && { budgetTarget: data.budgetTarget }),
       ...(data.budgetMax !== undefined && { budgetMax: data.budgetMax }),
       ...(data.sandboxMode !== undefined && { sandboxMode: data.sandboxMode }),
+      ...(data.zipCode !== undefined && { zipCode: data.zipCode }),
     },
   });
 
@@ -59,7 +62,7 @@ export async function updateCommunicationPolicy(
   if (!session?.user?.id) throw new Error("Not authenticated");
 
   const existing = await prisma.case.findFirst({
-    where: { id: caseId, userId: session.user.id },
+    where: caseAccessWhere(session.user.id, caseId),
     include: { communicationPolicy: true },
   });
   if (!existing || !existing.communicationPolicy) {
@@ -169,7 +172,7 @@ export async function runAgentAction(
   if (!session?.user?.id) throw new Error("Not authenticated");
 
   const existing = await prisma.case.findFirst({
-    where: { id: caseId, userId: session.user.id },
+    where: caseAccessWhere(session.user.id, caseId),
     include: { vendorShortlists: true },
   });
   if (!existing) throw new Error("Case not found");

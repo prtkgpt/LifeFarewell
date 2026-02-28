@@ -123,6 +123,7 @@ export function ConciergeConsole({
   const [activity, setActivity] = useState(initialActivity);
   const [loading, setLoading] = useState<string | null>(null);
   const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Poll for new activity
   const pollActivity = useCallback(async () => {
@@ -144,13 +145,15 @@ export function ConciergeConsole({
 
   async function handleAction(actionType: string) {
     setLoading(actionType);
+    setActionError(null);
     try {
       await runAgentAction(caseData.id, actionType);
       await pollActivity();
-      // Refresh the full page to pick up new vendors, quotes, approvals, etc.
       router.refresh();
     } catch (err) {
-      console.error(err);
+      const message = err instanceof Error ? err.message : String(err);
+      setActionError(message);
+      await pollActivity();
     }
     setLoading(null);
   }
@@ -293,6 +296,23 @@ export function ConciergeConsole({
               <Zap className="h-4 w-4 text-amber-600" />
               Quick Actions
             </h2>
+            {actionError && (
+              <div className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
+                  <div>
+                    <p className="text-sm font-medium text-red-800">Action failed</p>
+                    <p className="mt-0.5 text-xs text-red-600">{actionError}</p>
+                  </div>
+                  <button
+                    onClick={() => setActionError(null)}
+                    className="ml-auto text-red-400 hover:text-red-600"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <button
                 onClick={() => handleAction("vendor_discovery")}

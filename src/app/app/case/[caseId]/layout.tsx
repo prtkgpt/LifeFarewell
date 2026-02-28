@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { CaseSidebar } from "@/components/layout/case-sidebar";
+import { caseAccessWhere } from "@/lib/case-access";
 
 export default async function CaseLayout({
   children,
@@ -16,7 +17,7 @@ export default async function CaseLayout({
   const { caseId } = await params;
 
   const caseData = await prisma.case.findFirst({
-    where: { id: caseId, userId: session.user.id },
+    where: caseAccessWhere(session.user.id, caseId),
   });
 
   if (!caseData) notFound();

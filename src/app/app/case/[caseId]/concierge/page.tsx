@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { ConciergeConsole } from "@/components/concierge/console";
+import { caseAccessWhere } from "@/lib/case-access";
 
 export default async function ConciergePage({
   params,
@@ -14,7 +15,7 @@ export default async function ConciergePage({
   const { caseId } = await params;
 
   const caseData = await prisma.case.findFirst({
-    where: { id: caseId, userId: session.user.id },
+    where: caseAccessWhere(session.user.id, caseId),
     include: {
       communicationPolicy: true,
       decedentProfile: true,

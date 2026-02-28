@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { caseAccessWhere } from "@/lib/case-access";
 
 export async function GET(
   _req: NextRequest,
@@ -14,7 +15,7 @@ export async function GET(
   const { caseId } = await params;
 
   const caseData = await prisma.case.findFirst({
-    where: { id: caseId, userId: session.user.id },
+    where: caseAccessWhere(session.user.id, caseId),
     include: { communicationPolicy: true },
   });
 
