@@ -6,8 +6,9 @@ export const useCaseSchema = z.object({
 
 export const bereavedDetailsSchema = z.object({
   relationship: z.enum(["spouse", "child", "parent", "sibling", "other"]),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(2, "State is required"),
+  zipCode: z.string().length(5, "Zip code must be 5 digits").regex(/^\d{5}$/, "Invalid zip code"),
+  city: z.string().optional(),
+  state: z.string().optional(),
   dateOfDeath: z.string().optional(),
   hasExistingFuneralHome: z.boolean(),
   immediateNeeds: z.array(z.string()).min(1, "Select at least one need"),

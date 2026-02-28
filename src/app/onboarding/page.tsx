@@ -49,6 +49,7 @@ export default function OnboardingPage() {
 
   // Bereaved details
   const [relationship, setRelationship] = useState("");
+  const [zipCode, setZipCode] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("CA");
   const [dateOfDeath, setDateOfDeath] = useState("");
@@ -85,6 +86,7 @@ export default function OnboardingPage() {
     try {
       const result = await createBereavedCase({
         relationship,
+        zipCode,
         city,
         state,
         dateOfDeath: dateOfDeath || undefined,
@@ -313,29 +315,20 @@ export default function OnboardingPage() {
               </div>
 
               {/* Location */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-stone-700">City</label>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none"
-                    placeholder="e.g., Livermore"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-stone-700">State</label>
-                  <select
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none"
-                  >
-                    {US_STATES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-stone-700">Zip Code</label>
+                <input
+                  type="text"
+                  value={zipCode}
+                  onChange={(e) => setZipCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  className="w-full max-w-[200px] rounded-xl border border-stone-300 px-4 py-3 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none"
+                  placeholder="e.g., 94550"
+                  inputMode="numeric"
+                  maxLength={5}
+                />
+                <p className="mt-1 text-xs text-stone-400">
+                  We&apos;ll find local funeral providers near this zip code
+                </p>
               </div>
 
               {/* Date of death */}
@@ -435,8 +428,8 @@ export default function OnboardingPage() {
             <div className="mt-10 flex justify-end">
               <button
                 onClick={() => {
-                  if (!relationship || !city) {
-                    setError("Please fill in your relationship and city");
+                  if (!relationship || !zipCode || zipCode.length !== 5) {
+                    setError("Please fill in your relationship and a valid 5-digit zip code");
                     return;
                   }
                   if (needs.length === 0) {

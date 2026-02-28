@@ -221,6 +221,7 @@ model Case {
   budgetMax     Int?
   city          String?
   state         String?
+  zipCode       String?
   sandboxMode   Boolean       @default(true)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -290,21 +291,22 @@ model CaseIntakeSession {
 
 // ─── VENDORS ─────────────────────────────────────────────────────────
 model Vendor {
-  id          String   @id @default(cuid())
-  name        String
-  category    String
-  city        String
-  state       String
-  address     String?
-  phone       String?
-  email       String?
-  website     String?
-  rating      Float?
-  priceRange  String?
-  description String?
-  services    String[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  googlePlaceId String?  @unique
+  name          String
+  category      String
+  city          String
+  state         String
+  address       String?
+  phone         String?
+  email         String?
+  website       String?
+  rating        Float?
+  priceRange    String?
+  description   String?
+  services      String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   shortlists          VendorShortlist[]
   conversationThreads VendorConversationThread[]

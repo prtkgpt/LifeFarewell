@@ -170,27 +170,87 @@ export async function runAgentAction(
 
   const existing = await prisma.case.findFirst({
     where: { id: caseId, userId: session.user.id },
+    include: { vendorShortlists: true },
   });
   if (!existing) throw new Error("Case not found");
-
-  // Enqueue job for the agent
-  await prisma.job.create({
-    data: {
-      type: actionType,
-      payload: { caseId, userId: session.user.id },
-      status: "PENDING",
-    },
-  });
 
   await prisma.auditLog.create({
     data: {
       userId: session.user.id,
       caseId,
       actorType: "USER",
-      actionType: `agent.${actionType}.enqueued`,
-      summary: `Agent action enqueued: ${actionType}`,
+      actionType: `agent.${actionType}.started`,
+      summary: `Agent action started: ${actionType}`,
     },
   });
+
+  // Execute the agent directly instead of just enqueuing
+  try {
+    switch (actionType) {
+      case "vendor_discovery": {
+        const { runVendorDiscovery } = await import("@/agents/vendor-discovery");
+        await runVendorDiscovery({ caseId });
+        break;
+      }
+      case "outreach":
+      case "request_quotes": {
+        const { runOutreach } = await import("@/agents/outreach");
+        // Auto-select uncontacted vendors from the shortlist
+        const uncontacted = existing.vendorShortlists.filter(
+          (vs) => vs.status === "pending"
+        );
+        if (uncontacted.length === 0) {
+          throw new Error("No uncontacted vendors. Run vendor discovery first.");
+        }
+        // For "request_quotes", reach out to up to 3; for "outreach", just 1
+        const targets = actionType === "request_quotes"
+          ? uncontacted.slice(0, 3)
+          : uncontacted.slice(0, 1);
+        for (const vs of targets) {
+          await runOutreach({ caseId, vendorId: vs.vendorId });
+          // Mark vendor as contacted
+          await prisma.vendorShortlist.update({
+            where: { id: vs.id },
+            data: { status: "contacted" },
+          });
+        }
+        break;
+      }
+      case "normalize_quotes": {
+        const { runQuoteNormalization } = await import("@/agents/quote-normalization");
+        const quotes = await prisma.quoteRequest.findMany({
+          where: { caseId },
+        });
+        for (const quote of quotes) {
+          await runQuoteNormalization({ quoteRequestId: quote.id });
+        }
+        break;
+      }
+      case "trigger": {
+        const { runTrigger } = await import("@/agents/trigger");
+        await runTrigger({ caseId });
+        break;
+      }
+      default:
+        throw new Error(`Unknown action type: ${actionType}`);
+    }
+
+    // Update pipeline stage after executing any action
+    const { runOrchestrator } = await import("@/agents/orchestrator");
+    await runOrchestrator({ caseId });
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        caseId,
+        actorType: "SYSTEM",
+        actionType: `agent.${actionType}.failed`,
+        summary: `Agent action failed: ${errorMessage}`,
+      },
+    });
+    throw err;
+  }
 
   revalidatePath(`/app/case/${caseId}`);
   return { success: true };

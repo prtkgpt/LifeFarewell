@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { discoverVendorsByZipCode, geocodeZipCode } from "@/lib/vendors/google-places";
 import { logAudit } from "./audit";
 
 // ─── Input Schema ────────────────────────────────────────────────────────────
@@ -109,6 +110,7 @@ export async function runVendorDiscovery(
     },
   });
 
+  const zipCode = caseRecord.zipCode;
   const city = caseRecord.city ?? caseRecord.decedentProfile?.city ?? null;
   const state = caseRecord.state ?? caseRecord.decedentProfile?.state ?? null;
 
@@ -119,7 +121,6 @@ export async function runVendorDiscovery(
   }
   for (const session of caseRecord.intakeSessions) {
     if (session.role === "user" && session.content) {
-      // Extract keywords from user messages
       const keywords = session.content
         .toLowerCase()
         .split(/\s+/)
@@ -143,71 +144,125 @@ export async function runVendorDiscovery(
     }
   }
 
-  // Query vendors matching location
-  const whereClause: Record<string, unknown> = {};
-  if (state) {
-    whereClause.state = { equals: state, mode: "insensitive" };
-  }
-  if (city) {
-    whereClause.city = { equals: city, mode: "insensitive" };
-  }
-
-  let vendors = await prisma.vendor.findMany({
-    where: whereClause,
-  });
-
-  // Fallback: if no city match, broaden to state-only
-  if (vendors.length === 0 && city && state) {
-    vendors = await prisma.vendor.findMany({
-      where: {
-        state: { equals: state, mode: "insensitive" },
-      },
-    });
-  }
-
-  // Exclude already-shortlisted vendors
+  // Existing vendor IDs to avoid duplicates
   const existingVendorIds = new Set(
     caseRecord.vendorShortlists.map(
       (vs: { vendorId: string }) => vs.vendorId
     )
   );
-  const newVendors = vendors.filter(
-    (v: { id: string }) => !existingVendorIds.has(v.id)
-  );
 
-  // Score and rank vendors
-  const scoredVendors = newVendors.map(
-    (vendor: {
-      id: string;
-      name: string;
-      category: string;
-      city: string;
-      state: string;
-      rating: number | null;
-      services: string[];
-      priceRange: string | null;
-    }) => {
-      const { score, reason } = scoreVendor(
-        vendor,
-        needs,
-        caseRecord.budgetTarget
-      );
-      return { vendor, score, reason };
+  let resolvedCity = city;
+  let resolvedState = state;
+  let allVendorIds: string[] = [];
+
+  // ─── Strategy 1: Google Places API (if zip code is available) ───────────
+  if (zipCode && process.env.GOOGLE_PLACES_API_KEY) {
+    try {
+      const { vendors: discovered, geocode } = await discoverVendorsByZipCode(zipCode);
+      resolvedCity = resolvedCity || geocode.city;
+      resolvedState = resolvedState || geocode.state;
+
+      // Update case with resolved city/state if not already set
+      if (!caseRecord.city || !caseRecord.state) {
+        await prisma.case.update({
+          where: { id: input.caseId },
+          data: {
+            ...(!caseRecord.city && geocode.city ? { city: geocode.city } : {}),
+            ...(!caseRecord.state && geocode.state ? { state: geocode.state } : {}),
+          },
+        });
+      }
+
+      // Upsert discovered vendors into DB
+      for (const v of discovered) {
+        const vendor = await prisma.vendor.upsert({
+          where: { googlePlaceId: v.googlePlaceId },
+          update: {
+            name: v.name,
+            phone: v.phone,
+            website: v.website,
+            rating: v.rating,
+            description: v.description,
+            address: v.address,
+          },
+          create: {
+            googlePlaceId: v.googlePlaceId,
+            name: v.name,
+            category: v.category,
+            city: v.city,
+            state: v.state,
+            address: v.address,
+            phone: v.phone,
+            website: v.website,
+            rating: v.rating,
+            description: v.description,
+            services: [],
+          },
+        });
+        allVendorIds.push(vendor.id);
+      }
+    } catch (err) {
+      console.error("[VendorDiscovery] Google Places failed, falling back to DB:", err);
+      // Fall through to DB-based discovery
     }
+  }
+
+  // ─── Strategy 2: Local DB fallback ──────────────────────────────────────
+  if (allVendorIds.length === 0) {
+    const whereClause: Record<string, unknown> = {};
+    if (resolvedState) {
+      whereClause.state = { equals: resolvedState, mode: "insensitive" };
+    }
+    if (resolvedCity) {
+      whereClause.city = { equals: resolvedCity, mode: "insensitive" };
+    }
+
+    let vendors = await prisma.vendor.findMany({ where: whereClause });
+
+    // Fallback: if no city match, broaden to state-only
+    if (vendors.length === 0 && resolvedCity && resolvedState) {
+      vendors = await prisma.vendor.findMany({
+        where: {
+          state: { equals: resolvedState, mode: "insensitive" },
+        },
+      });
+    }
+
+    allVendorIds = vendors.map((v) => v.id);
+  }
+
+  // ─── Score, rank, and shortlist ─────────────────────────────────────────
+
+  // Load all candidate vendors
+  const candidateVendors = await prisma.vendor.findMany({
+    where: { id: { in: allVendorIds } },
+  });
+
+  // Exclude already-shortlisted
+  const newVendors = candidateVendors.filter(
+    (v) => !existingVendorIds.has(v.id)
   );
 
-  scoredVendors.sort(
-    (a: { score: number }, b: { score: number }) => b.score - a.score
-  );
+  // Score and rank
+  const scoredVendors = newVendors.map((vendor) => {
+    const { score, reason } = scoreVendor(
+      vendor,
+      needs,
+      caseRecord.budgetTarget
+    );
+    return { vendor, score, reason };
+  });
 
-  // Take top 5 vendors
+  scoredVendors.sort((a, b) => b.score - a.score);
+
+  // Take top 5
   const topVendors = scoredVendors.slice(0, 5);
 
   // Create VendorShortlist entries
   const shortlist: ShortlistedVendor[] = [];
   for (let i = 0; i < topVendors.length; i++) {
     const { vendor, reason } = topVendors[i];
-    const priority = i + 1; // 1 = highest priority
+    const priority = i + 1;
 
     const entry = await prisma.vendorShortlist.create({
       data: {
@@ -237,12 +292,14 @@ export async function runVendorDiscovery(
     userId: caseRecord.userId,
     actorType: "AGENT",
     actionType: "VENDOR_DISCOVERY",
-    summary: `Discovered ${vendors.length} vendor(s) in ${city ?? "unknown"}, ${state ?? "unknown"}. Shortlisted ${shortlist.length}.`,
+    summary: `Discovered ${allVendorIds.length} vendor(s) near ${resolvedCity ?? "unknown"}, ${resolvedState ?? "unknown"}${zipCode ? ` (${zipCode})` : ""}. Shortlisted ${shortlist.length}.`,
     payload: {
-      city,
-      state,
-      totalFound: vendors.length,
+      zipCode,
+      city: resolvedCity,
+      state: resolvedState,
+      totalFound: allVendorIds.length,
       shortlistedCount: shortlist.length,
+      source: allVendorIds.length > 0 && zipCode ? "google_places" : "database",
       shortlist: shortlist.map((s) => ({
         vendorId: s.vendorId,
         name: s.vendorName,
@@ -254,9 +311,9 @@ export async function runVendorDiscovery(
 
   return {
     caseId: input.caseId,
-    city,
-    state,
-    vendorsFound: vendors.length,
+    city: resolvedCity,
+    state: resolvedState,
+    vendorsFound: allVendorIds.length,
     shortlist,
   };
 }

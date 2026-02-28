@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Headphones,
   Target,
@@ -118,6 +119,7 @@ export function ConciergeConsole({
   caseData: CaseData;
   recentActivity: AuditEntry[];
 }) {
+  const router = useRouter();
   const [activity, setActivity] = useState(initialActivity);
   const [loading, setLoading] = useState<string | null>(null);
   const [approvalLoading, setApprovalLoading] = useState<string | null>(null);
@@ -145,6 +147,8 @@ export function ConciergeConsole({
     try {
       await runAgentAction(caseData.id, actionType);
       await pollActivity();
+      // Refresh the full page to pick up new vendors, quotes, approvals, etc.
+      router.refresh();
     } catch (err) {
       console.error(err);
     }
@@ -155,6 +159,7 @@ export function ConciergeConsole({
     setApprovalLoading(approvalId);
     try {
       await handleApproval(approvalId, action);
+      router.refresh();
     } catch (err) {
       console.error(err);
     }

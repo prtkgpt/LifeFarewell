@@ -41,8 +41,9 @@ async function getOrCreateUserId(): Promise<{
 
 export async function createBereavedCase(formData: {
   relationship: string;
-  city: string;
-  state: string;
+  zipCode: string;
+  city?: string;
+  state?: string;
   dateOfDeath?: string;
   hasExistingFuneralHome: boolean;
   immediateNeeds: string[];
@@ -68,6 +69,7 @@ export async function createBereavedCase(formData: {
     // Validate details
     const detailsParsed = bereavedDetailsSchema.safeParse({
       relationship: formData.relationship,
+      zipCode: formData.zipCode,
       city: formData.city,
       state: formData.state,
       dateOfDeath: formData.dateOfDeath,
@@ -133,6 +135,7 @@ export async function createBereavedCase(formData: {
           budgetMax: details.budgetMax,
           city: details.city,
           state: details.state,
+          zipCode: details.zipCode,
           sandboxMode: true,
         },
       });
