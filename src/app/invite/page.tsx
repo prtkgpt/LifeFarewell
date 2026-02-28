@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
@@ -15,7 +15,7 @@ import {
   User,
 } from "lucide-react";
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token");
@@ -28,7 +28,6 @@ export default function AcceptInvitePage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Pre-fill email if provided in URL
     const emailParam = searchParams.get("email");
     if (emailParam) setEmail(emailParam);
   }, [searchParams]);
@@ -220,5 +219,19 @@ export default function AcceptInvitePage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-stone-50">
+          <Loader2 className="h-8 w-8 animate-spin text-stone-400" />
+        </div>
+      }
+    >
+      <AcceptInviteContent />
+    </Suspense>
   );
 }
